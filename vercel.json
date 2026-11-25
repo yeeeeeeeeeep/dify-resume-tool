@@ -1,7 +1,1 @@
-{
-  "functions": {
-    "api/dify.js": {
-      "maxDuration": 60
-    }
-  }
-}
+
