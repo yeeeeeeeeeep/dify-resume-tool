@@ -1,0 +1,19 @@
+{
+  "name": "dify-resume-tool",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Dify 简历优化工作流 + 自定义前端 + Node 中转服务",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "mock": "node test/mock-dify.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.2"
+  }
+}

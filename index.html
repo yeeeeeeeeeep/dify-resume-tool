@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 简历优化助手</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { primary: '#2563eb', inkc: '#1f2937' },
+        fontFamily: { sans: ['Inter', 'PingFang SC', 'Microsoft YaHei', 'system-ui', 'sans-serif'] }
+      }
+    }
+  }
+</script>
+<style>
+  .card { box-shadow: 0 10px 25px -5px rgba(15,23,42,.08), 0 4px 6px -2px rgba(15,23,42,.04); }
+  .field { transition: border-color .15s, box-shadow .15s; }
+  .field:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+  .spin { animation: sp 1s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .step-running { color: #2563eb; }
+  .step-ok { color: #16a34a; }
+  .step-fail { color: #dc2626; }
+  #logBox::-webkit-scrollbar { width: 6px; }
+  #logBox::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .prose-out { white-space: pre-wrap; word-break: break-word; line-height: 1.85; }
+</style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-inkc">
+
+<script>
+  /**
+   * 后端地址（重要）。
+   * - 页面和接口在同一域名下（直接用 Node 服务托管）→ 留空 "" 就行。
+   * - 页面放静态托管、后端放云托管（两个域名）→ 必须填后端域名，例如：
+   *   window.API_BASE = "https://dify-resume-api-xxx.service.tcloudbase.com";
+   *   只填域名，不要带 /api，也不要带结尾斜杠。
+   */
+  window.API_BASE = "";
+</script>
+
+<div class="max-w-3xl mx-auto py-10 px-4">
+
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-primary mb-2">AI 简历优化助手</h1>
+    <p class="text-gray-500 text-sm">上传简历 + 目标岗位信息，输出针对该岗位优化后的简历</p>
+  </div>
+
+  <div id="statusBar" class="hidden mb-4 text-sm rounded-lg px-4 py-3"></div>
+
+  <div class="bg-white rounded-2xl p-6 md:p-8 card">
+    <form id="resumeForm" class="space-y-6" novalidate>
+
+      <!-- JL 简历文件（必填） -->
+      <div>
+        <label class="block text-[15px] font-semibold mb-1.5 text-gray-700">
+          <i class="fa fa-file-text-o mr-1 text-primary"></i> 我的简历 <span class="text-red-500">*</span>
+        </label>
+        <p class="text-xs text-gray-400 mb-2">PDF / Word 都可以，不超过 25 MB</p>
+        <input type="file" id="JL" name="JL" accept=".pdf,.doc,.docx,.txt,.md"
+               class="field w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-blue-50 file:text-primary hover:file:bg-blue-100">
+      </div>
+
+      <!-- JD 文件 -->
+      <div>
+        <label class="block text-[15px] font-semibold mb-1.5 text-gray-700">
+          <i class="fa fa-file-text mr-1 text-primary"></i> 岗位 JD 文件
+        </label>
+        <p class="text-xs text-gray-400 mb-2">和下面的 JD 链接二选一，都有会一起用</p>
+        <input type="file" id="JD" name="JD" accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg"
+               class="field w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-blue-50 file:text-primary hover:file:bg-blue-100">
+      </div>
+
+      <!-- JD 链接 -->
+      <div>
+        <label class="block text-[15px] font-semibold mb-1.5 text-gray-700">
+          <i class="fa fa-link mr-1 text-primary"></i> JD 网页链接
+        </label>
+        <p class="text-xs text-gray-400 mb-2">招聘页地址，工作流会自己去抓岗位描述</p>
+        <input type="url" id="JD_lianjie" name="JD_lianjie" placeholder="https://..."
+               class="field w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+      </div>
+
+      <!-- 岗位名称 -->
+      <div>
+        <label class="block text-[15px] font-semibold mb-1.5 text-gray-700">
+          <i class="fa fa-briefcase mr-1 text-primary"></i> 目标岗位名称
+        </label>
+        <input type="text" id="JD_name" name="JD_name" placeholder="例如：AI 产品经理"
+               class="field w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm">
+      </div>
+
+      <!-- 输出类型 -->
+      <div>
+        <label class="block text-[15px] font-semibold mb-1.5 text-gray-700">
+          <i class="fa fa-download mr-1 text-primary"></i> 输出格式
+        </label>
+        <select id="JL_output_type" name="JL_output_type"
+                class="field w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white">
+          <option value="docx">Word 文档（.docx，推荐）</option>
+          <option value="PDF">PDF 文件</option>
+          <option value="PNG">PNG 图片</option>
+        </select>
+      </div>
+
+      <!-- 参考模板 -->
+      <div>
+        <label class="block text-[15px] font-semibold mb-1.5 text-gray-700">
+          <i class="fa fa-file-o mr-1 text-primary"></i> 参考模板
+        </label>
+        <p class="text-xs text-gray-400 mb-2">想让排版跟你现有的简历一致就传一份（选填）</p>
+        <input type="file" id="JL_example" name="JL_example" accept=".pdf,.doc,.docx"
+               class="field w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-blue-50 file:text-primary hover:file:bg-blue-100">
+      </div>
+
+      <button id="submitBtn" type="submit"
+              class="w-full bg-primary hover:bg-blue-700 text-white font-medium py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+        <i class="fa fa-magic"></i><span>开始优化简历</span>
+      </button>
+    </form>
+  </div>
+
+  <!-- 进度 -->
+  <div id="progressCard" class="hidden mt-5 bg-white rounded-2xl p-6 card">
+    <div class="flex items-center gap-2 mb-3">
+      <i id="progIcon" class="fa fa-spinner spin text-primary"></i>
+      <span id="progTitle" class="font-semibold text-[15px]">正在处理…</span>
+    </div>
+    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-4">
+      <div id="progBar" class="h-full bg-primary rounded-full transition-all duration-500" style="width:8%"></div>
+    </div>
+    <div id="logBox" class="max-h-44 overflow-y-auto text-xs text-gray-500 space-y-1.5 pr-1"></div>
+  </div>
+
+  <!-- 错误 -->
+  <div id="errorCard" class="hidden mt-5 bg-red-50 border border-red-200 rounded-2xl p-5">
+    <div class="flex gap-2 text-red-700 font-semibold text-sm mb-1">
+      <i class="fa fa-exclamation-circle mt-0.5"></i><span>没跑通</span>
+    </div>
+    <div id="errorMsg" class="text-sm text-red-700 whitespace-pre-wrap break-words"></div>
+    <div id="errorHint" class="hidden text-xs text-red-500 mt-2"></div>
+  </div>
+
+  <!-- 结果 -->
+  <div id="resultCard" class="hidden mt-5 bg-white rounded-2xl p-6 md:p-8 card">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg text-gray-800"><i class="fa fa-check-circle text-green-500 mr-1.5"></i>优化结果</h3>
+      <button id="copyBtn" class="text-xs text-gray-400 hover:text-primary transition-colors">
+        <i class="fa fa-clipboard mr-1"></i>复制文本
+      </button>
+    </div>
+
+    <div id="fileBox" class="hidden mb-5 space-y-2"></div>
+
+    <div id="textBox" class="space-y-4"></div>
+  </div>
+
+  <div class="text-center mt-8 text-xs text-gray-400 leading-relaxed">
+    <div>由 Dify 工作流驱动 · API 密钥保存在服务器端，不会出现在网页源码里</div>
+    <button id="diagBtn" type="button" class="mt-2 hover:text-primary transition-colors underline decoration-dotted">检查服务器连接</button>
+    <div id="diagOut" class="mt-2 text-[11px] font-mono text-gray-400 hidden"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById('resumeForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const progressCard = document.getElementById('progressCard');
+  const progBar = document.getElementById('progBar');
+  const progTitle = document.getElementById('progTitle');
+  const progIcon = document.getElementById('progIcon');
+  const logBox = document.getElementById('logBox');
+  const errorCard = document.getElementById('errorCard');
+  const errorMsg = document.getElementById('errorMsg');
+  const errorHint = document.getElementById('errorHint');
+  const resultCard = document.getElementById('resultCard');
+  const textBox = document.getElementById('textBox');
+  const fileBox = document.getElementById('fileBox');
+  const copyBtn = document.getElementById('copyBtn');
+  const diagBtn = document.getElementById('diagBtn');
+  const diagOut = document.getElementById('diagOut');
+  const statusBar = document.getElementById('statusBar');
+
+  const API_BASE = String(window.API_BASE || '').replace(/\/+$/, '');
+  const api = function (p) { return API_BASE + p; };
+
+  let plainText = '';
+  let stepCount = 0;
+  let currentPct = 8;
+
+  function addLog(msg, cls) {
+    const div = document.createElement('div');
+    div.className = 'leading-relaxed ' + (cls || '');
+    div.textContent = msg;
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function setProgress(pct) {
+    currentPct = Math.min(pct, 96);
+    progBar.style.width = currentPct + '%';
+  }
+
+  function resetUI() {
+    errorCard.classList.add('hidden');
+    resultCard.classList.add('hidden');
+    progressCard.classList.remove('hidden');
+    logBox.innerHTML = '';
+    textBox.innerHTML = '';
+    fileBox.innerHTML = '';
+    plainText = '';
+    stepCount = 0;
+    setProgress(8);
+    progTitle.textContent = '正在处理…';
+    progIcon.className = 'fa fa-spinner spin text-primary';
+  }
+
+  function showError(msg, hint) {
+    progressCard.classList.add('hidden');
+    errorCard.classList.remove('hidden');
+    errorMsg.textContent = msg || '未知错误';
+    if (hint) {
+      errorHint.textContent = hint;
+      errorHint.classList.remove('hidden');
+    } else {
+      errorHint.classList.add('hidden');
+    }
+    errorCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function renderDone(payload) {
+    progressCard.classList.add('hidden');
+    errorCard.classList.add('hidden');
+    resultCard.classList.remove('hidden');
+
+    const files = payload.files || [];
+    if (files.length) {
+      fileBox.classList.remove('hidden');
+      files.forEach(function (f) {
+        const a = document.createElement('a');
+        a.href = f.url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'flex items-center gap-3 border border-gray-200 hover:border-primary rounded-xl px-4 py-3 transition-colors group';
+        const ext = (f.type || (f.name || '').split('.').pop() || 'file').toUpperCase();
+        a.innerHTML =
+          '<span class="w-10 h-10 rounded-lg bg-blue-50 text-primary flex items-center justify-center text-[11px] font-bold shrink-0">' + ext + '</span>' +
+          '<span class="flex-1 min-w-0">' +
+            '<span class="block text-sm font-medium text-gray-800 truncate">' + (f.name || '生成的文件') + '</span>' +
+            '<span class="block text-[11px] text-gray-400">点此下载</span>' +
+          '</span>' +
+          '<i class="fa fa-download text-gray-300 group-hover:text-primary"></i>';
+        fileBox.appendChild(a);
+      });
+    } else {
+      fileBox.classList.add('hidden');
+    }
+
+    const texts = payload.text || [];
+    texts.forEach(function (t) {
+      const wrap = document.createElement('div');
+      wrap.className = 'bg-slate-50 rounded-xl p-5';
+      if (texts.length > 1) {
+        const h = document.createElement('div');
+        h.className = 'text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide';
+        h.textContent = t.key;
+        wrap.appendChild(h);
+      }
+      const body = document.createElement('div');
+      body.className = 'prose-out text-[13.5px] text-gray-700';
+      body.textContent = t.text;
+      wrap.appendChild(body);
+      textBox.appendChild(wrap);
+      plainText += (plainText ? '\n\n' : '') + t.text;
+    });
+
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- 读 SSE（POST 不能用 EventSource，这里手工读流） ---------- */
+  async function readStream(res, onEvent) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buf = '';
+    while (true) {
+      const r = await reader.read();
+      if (r.done) break;
+      buf += decoder.decode(r.value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop() || '';
+      for (const part of parts) {
+        const line = part.split('\n').find(function (l) { return l.startsWith('data:'); });
+        if (!line) continue;
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+        try { onEvent(JSON.parse(raw)); } catch (e) { /* 忽略心跳等非 JSON */ }
+      }
+    }
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const jl = document.getElementById('JL').files[0];
+    if (!jl) {
+      statusBar.className = 'mb-4 text-sm rounded-lg px-4 py-3 bg-amber-50 text-amber-700 border border-amber-200';
+      statusBar.textContent = '先选一份简历文件再提交。';
+      statusBar.classList.remove('hidden');
+      return;
+    }
+    statusBar.classList.add('hidden');
+
+    submitBtn.disabled = true;
+    submitBtn.classList.add('opacity-60');
+    submitBtn.innerHTML = '<i class="fa fa-spinner spin"></i><span>正在处理，请稍候…</span>';
+    resetUI();
+
+    const fd = new FormData(form);
+
+    try {
+      const res = await fetch(api('/api/run-workflow'), { method: 'POST', body: fd });
+
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.includes('text/event-stream')) {
+        // 走到这里说明接口根本没打到 Node 服务（返回的是网页）
+        const raw = await res.text();
+        showError(
+          '接口返回的不是事件流，而是网页内容（HTTP ' + res.status + '）。\n' +
+          '当前请求地址：' + api('/api/run-workflow') + '\n\n返回片段：\n' + raw.slice(0, 300),
+          API_BASE
+            ? '后端服务没起来，或者这个域名后面不是 Node 服务。先去 ' + api('/api/health') + ' 看看返回什么。'
+            : '页面和后端不在同一个域名。请在页面顶部的 window.API_BASE 里填后端（云托管）域名，然后再刷新。'
+        );
+        return;
+      }
+
+      await readStream(res, function (evt) {
+        if (evt.type === 'log') {
+          addLog('· ' + evt.message);
+          setProgress(currentPct + 3);
+        } else if (evt.type === 'node') {
+          if (evt.status === 'running') {
+            stepCount++;
+            setProgress(15 + stepCount * 9);
+            addLog('▸ ' + (evt.title || '节点') + ' 执行中…', 'step-running');
+            progTitle.textContent = (evt.title || '节点') + ' 执行中…';
+          } else if (evt.status === 'failed') {
+            addLog('✕ ' + (evt.title || '节点') + ' 失败', 'step-fail');
+          } else {
+            var el = evt.elapsed
+              ? '（' + (typeof evt.elapsed === 'number' ? evt.elapsed.toFixed(1) : evt.elapsed) + 's）'
+              : '';
+            addLog('✓ ' + (evt.title || '节点') + el, 'step-ok');
+            setProgress(15 + stepCount * 9 + 4);
+          }
+        } else if (evt.type === 'done') {
+          setProgress(100);
+          setTimeout(function () { renderDone(evt); }, 250);
+        } else if (evt.type === 'error') {
+          showError(evt.message, evt.hint);
+        }
+      });
+    } catch (err) {
+      showError('请求出错：' + err.message, '网络断了，或者服务正在重启，稍等几秒再试。');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-60');
+      submitBtn.innerHTML = '<i class="fa fa-magic"></i><span>开始优化简历</span>';
+    }
+  });
+
+  copyBtn.addEventListener('click', function () {
+    if (!plainText) return;
+    navigator.clipboard.writeText(plainText).then(function () {
+      copyBtn.innerHTML = '<i class="fa fa-check mr-1 text-green-500"></i>已复制';
+      setTimeout(function () {
+        copyBtn.innerHTML = '<i class="fa fa-clipboard mr-1"></i>复制文本';
+      }, 1800);
+    });
+  });
+
+  /* ---------- 连接自检 ---------- */
+  diagBtn.addEventListener('click', async function () {
+    diagOut.classList.remove('hidden');
+    diagOut.textContent = '检查中… 请求地址：' + api('/api/health');
+    try {
+      const h = await fetch(api('/api/health')).then(function (r) { return r.json(); });
+      let s = '后端：' + (h.status === 'ok' ? '正常' : '异常') +
+              '  |  Dify：' + h.difyBase +
+              '  |  密钥：' + (h.configured ? '已配置' : '未配置') +
+              (h.demo ? '  |  演示模式' : '');
+      try {
+        const p = await fetch(api('/api/parameters')).then(function (r) { return r.json(); });
+        if (p.ok) {
+          s += '\n工作流入参：' + p.vars.map(function (v) {
+            return v.name + '(' + v.type + ')';
+          }).join('、');
+        } else {
+          s += '\n入参读取失败：' + p.reason;
+        }
+      } catch (e) { s += '\n入参读取失败：' + e.message; }
+      diagOut.textContent = s;
+    } catch (e) {
+      diagOut.textContent = '连不上后端：' + e.message;
+    }
+  });
+
+  /* 首屏自检：先确认后端到底在不在这个域名后面，别让人白点 */
+  (async function init() {
+    try {
+      const r = await fetch(api('/api/health'));
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('application/json')) throw new Error('返回的不是 JSON');
+      const h = await r.json();
+      if (!h.configured && !h.demo) {
+        statusBar.className = 'mb-4 text-sm rounded-lg px-4 py-3 bg-amber-50 text-amber-700 border border-amber-200';
+        statusBar.textContent = '服务器还没配置 DIFY_API_KEY，现在提交会失败。配好环境变量后重新部署即可。';
+        statusBar.classList.remove('hidden');
+      }
+    } catch (e) {
+      statusBar.className = 'mb-4 text-sm rounded-lg px-4 py-3 bg-red-50 text-red-700 border border-red-200';
+      statusBar.textContent = API_BASE
+        ? '连不上后端 ' + API_BASE + '：' + e.message + '。检查云托管服务是否在运行、域名是否写全（要带 https://）。'
+        : '当前域名下没有后端接口（' + api('/api/health') + ' 返回的不是 JSON）。' +
+          '如果页面在静态托管、后端在云托管，请在页面顶部 window.API_BASE 填后端域名。';
+      statusBar.classList.remove('hidden');
+    }
+  })();
+})();
+</script>
+</body>
+</html>
