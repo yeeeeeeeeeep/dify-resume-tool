@@ -61,13 +61,13 @@
                     <input type="file" id="JD" name="JD" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
                 </div>
 
-                <!-- JD网页链接 -->
+                <!-- JD网页链接 【重点：这里name改成 JD_fenjie，和Dify对齐】 -->
                 <div>
                     <label class="block text-base font-semibold mb-2 text-gray-700">
                         <i class="fa fa-link mr-1 text-primary"></i> JD网页链接（选填）
                     </label>
                     <p class="text-sm text-gray-400 mb-2">招聘网页链接，会自动抓取岗位描述</p>
-                    <input type="url" id="JD_fanjie" name="JD_fanjie" placeholder="粘贴招聘网页链接" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
+                    <input type="url" id="JD_fenjie" name="JD_fenjie" placeholder="粘贴招聘网页链接" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
                 </div>
 
                 <!-- 岗位名 -->
@@ -143,8 +143,8 @@
 
             const formData = new FormData(form);
             try {
-                // 这里后端地址，等Render部署好之后，就是你Render服务的地址/api/dify
-                const res = await fetch('/api/dify', {
+                // ✅ 修改接口地址为 /api/run-workflow 和后端对齐
+                const res = await fetch('/api/run-workflow', {
                     method: 'POST',
                     body: formData
                 })
