@@ -61,16 +61,16 @@
                     <input type="file" id="JD" name="JD" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
                 </div>
 
-                <!-- JD网页链接 【重点：这里name改成 JD_fenjie，和Dify对齐】 -->
+                <!-- JD网页链接 【变量：JD_lianjie】 -->
                 <div>
                     <label class="block text-base font-semibold mb-2 text-gray-700">
                         <i class="fa fa-link mr-1 text-primary"></i> JD网页链接（选填）
                     </label>
                     <p class="text-sm text-gray-400 mb-2">招聘网页链接，会自动抓取岗位描述</p>
-                    <input type="url" id="JD_fenjie" name="JD_fenjie" placeholder="粘贴招聘网页链接" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
+                    <input type="url" id="JD_lianjie" name="JD_lianjie" placeholder="粘贴招聘网页链接" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
                 </div>
 
-                <!-- 岗位名 -->
+                <!-- 岗位名 JD_name -->
                 <div>
                     <label class="block text-base font-semibold mb-2 text-gray-700">
                         <i class="fa fa-briefcase mr-1 text-primary"></i> 岗位名称
@@ -79,7 +79,7 @@
                     <input type="text" id="JD_name" name="JD_name" placeholder="填写目标岗位名称" class="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary input-shadow">
                 </div>
 
-                <!-- 输出类型下拉 -->
+                <!-- 输出类型 JL_output_type -->
                 <div>
                     <label class="block text-base font-semibold mb-2 text-gray-700">
                         <i class="fa fa-download mr-1 text-primary"></i> 简历输出类型
@@ -92,7 +92,7 @@
                     </select>
                 </div>
 
-                <!-- JL模板 -->
+                <!-- JL模板 JL_example -->
                 <div>
                     <label class="block text-base font-semibold mb-2 text-gray-700">
                         <i class="fa fa-file-o mr-1 text-primary"></i> 简历模板 JL模板（选填）
@@ -143,14 +143,14 @@
 
             const formData = new FormData(form);
             try {
-                // ✅ 修改接口地址为 /api/run-workflow 和后端对齐
                 const res = await fetch('/api/run-workflow', {
                     method: 'POST',
                     body: formData
                 })
                 const data = await res.json();
                 resultArea.classList.remove('hidden');
-                resultContent.innerText = data.text || JSON.stringify(data, null, 2);
+                // Dify返回的文本输出
+                resultContent.innerText = data.data?.outputs?.text || JSON.stringify(data, null, 2);
                 if(data.fileUrl) {
                     downloadBox.classList.remove('hidden');
                     downloadLink.href = data.fileUrl;
