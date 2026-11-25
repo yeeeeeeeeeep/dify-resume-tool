@@ -127,42 +127,53 @@
     </div>
 
     <script>
-        const form = document.getElementById('resumeForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const resultArea = document.getElementById('resultArea');
-        const resultContent = document.getElementById('resultContent');
-        const downloadBox = document.getElementById('downloadBox');
-        const downloadLink = document.getElementById('downloadLink');
+    const form = document.getElementById('resumeForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultArea = document.getElementById('resultArea');
+    const resultContent = document.getElementById('resultContent');
+    const downloadBox = document.getElementById('downloadBox');
+    const downloadLink = document.getElementById('downloadLink');
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> 正在处理，请稍候...`
-            resultArea.classList.add('hidden');
-            downloadBox.classList.add('hidden');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> 正在处理，请稍候...`
+        resultArea.classList.add('hidden');
+        downloadBox.classList.add('hidden');
 
-            const formData = new FormData(form);
-            try {
-                const res = await fetch('/api/run-workflow', {
-                    method: 'POST',
-                    body: formData
-                })
-                const data = await res.json();
+        const formData = new FormData(form);
+        try {
+            const res = await fetch('/api/run-workflow', {
+                method: 'POST',
+                body: formData
+            })
+            console.log("👉 HTTP状态码：", res.status)
+            console.log("👉 返回头content-type：", res.headers.get("content-type"))
+
+            const rawText = await res.text();
+            console.log("👉 原始返回内容：", rawText.slice(0,300))
+            try{
+                const data = JSON.parse(rawText);
                 resultArea.classList.remove('hidden');
-                // Dify返回的文本输出
                 resultContent.innerText = data.data?.outputs?.text || JSON.stringify(data, null, 2);
                 if(data.fileUrl) {
                     downloadBox.classList.remove('hidden');
                     downloadLink.href = data.fileUrl;
                 }
-            } catch(err) {
+            }catch(parseErr){
+                // 这里就是你遇到的 <html> 报错分支
                 resultArea.classList.remove('hidden');
-                resultContent.innerText = '请求出错：' + err.message;
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = `<i class="fa fa-magic"></i> 开始优化简历`
+                resultContent.innerText = `❌ 接口没有返回JSON，返回了网页内容！\n状态码：${res.status}\n内容片段：\n${rawText.slice(0,500)}`
             }
-        })
-    </script>
+        } catch(err) {
+            resultArea.classList.remove('hidden');
+            resultContent.innerText = '请求出错：' + err.message;
+            console.error(err);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<i class="fa fa-magic"></i> 开始优化简历`
+        }
+    })
+</script>
 </body>
 </html>
